@@ -3,9 +3,13 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm.hpp>
+#include "ShaderLoader.hpp"
 using namespace glm;
+
 int main()
 {
+
+#pragma region WINDOW SETUP
 	glewExperimental = true;
 	if (!glfwInit())
 	{
@@ -35,10 +39,42 @@ int main()
 
 	glfwSetInputMode(window, GLFW_STICKY_KEYS, GL_TRUE);
 
+#pragma endregion
+
+	GLfloat testTriangleVertex[] = {
+		-1.0f,-1.0f,0.0f,
+		1.0f,-1.0f,0.0f,
+		0.0f,1.0f,0.0f
+	};
+
+	GLuint ShaderProgram = LoadShaders("VertexShader.glsl", "FragmentShader.glsl");
+
+
+
+	GLuint vao;
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	GLuint vbo;
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(testTriangleVertex), testTriangleVertex, GL_STATIC_DRAW);
+
+	//Main Loop
 	do 
 	{
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClearColor(0.2f, 0.2f, 0.75f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
+		//Draw calls
+		glUseProgram(ShaderProgram);
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, vbo);
+		glVertexAttribPointer(
+			0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0
+		);
+		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glDisableVertexAttribArray(0);
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
