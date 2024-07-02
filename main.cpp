@@ -4,7 +4,13 @@
 #include <GLFW/glfw3.h>
 #include <glm.hpp>
 #include "ShaderLoader.hpp"
+#include "Camera.h"
+#include <gtc/matrix_transform.hpp>
+#include <vector>
 using namespace glm;
+
+
+GLFWwindow* window;
 
 int main()
 {
@@ -21,7 +27,7 @@ int main()
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	GLFWwindow* window;
+
 	window = glfwCreateWindow(1024, 768, "VOXEL ENGINE", NULL, NULL);
 	if (window == NULL)
 	{
@@ -49,8 +55,6 @@ int main()
 
 	GLuint ShaderProgram = LoadShaders("VertexShader.glsl", "FragmentShader.glsl");
 
-
-
 	GLuint vao;
 	glGenVertexArrays(1, &vao);
 	glBindVertexArray(vao);
@@ -60,14 +64,28 @@ int main()
 	glBindBuffer(GL_ARRAY_BUFFER, vbo);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(testTriangleVertex), testTriangleVertex, GL_STATIC_DRAW);
 
+
+	camera cam = camera(window);
+
+	GLuint MatrixID = glGetUniformLocation(ShaderProgram, "MVP");
+
 	//Main Loop
 	do 
 	{
 		glClearColor(0.2f, 0.2f, 0.75f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
 
-		//Draw calls
 		glUseProgram(ShaderProgram);
+
+		cam.computeMatricesFromInputs();
+
+		glm::mat4 ModelMatrix = glm::translate(glm::mat4(1.0f), vec3(0.0f,0.0f,-2.0f));
+		glm::mat4 V = cam.getViewMatrix();
+		glm::mat4 MVP = cam.getProjectionMatrix() * V * ModelMatrix;
+
+		glUniformMatrix4fv(MatrixID, 1, GL_FALSE, &MVP[0][0]);
+		//Draw calls
+
 		glEnableVertexAttribArray(0);
 		glBindBuffer(GL_ARRAY_BUFFER, vbo);
 		glVertexAttribPointer(
@@ -75,12 +93,12 @@ int main()
 		);
 		glDrawArrays(GL_TRIANGLES, 0, 3);
 		glDisableVertexAttribArray(0);
+
+
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
-	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS &&
-		glfwWindowShouldClose(window) == 0);
+	while (glfwGetKey(window, GLFW_KEY_ESCAPE) != GLFW_PRESS && glfwWindowShouldClose(window) == 0);
 	
-
 	return 0;
 }
