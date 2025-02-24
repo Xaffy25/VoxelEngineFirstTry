@@ -10,7 +10,7 @@ uniform float uGrayPalette[16];
 uniform vec3 uBoxMin;
 uniform vec3 uBoxMax;
 uniform vec3 uCameraPos;
-
+uniform mat4 uModel;
 //TEMP
 vec3 sunDir = vec3(-0.2,-1.0,-0.3);
 //TEMP
@@ -26,8 +26,8 @@ vec4 GetColorFromPalette(int id)
 	return vec4(vec3(uColorTable[clamp(id,0,7)]),1.0);
 }
 
-vec4 getGrayFromPalette(int id) {
-	// Ensure the ID is within bounds
+vec4 getGrayFromPalette(int id) 
+{
 	return vec4(uGrayPalette[clamp(id, 0, 15)], uGrayPalette[clamp(id, 0, 15)], uGrayPalette[clamp(id, 0, 15)], 1.0);
 }
 
@@ -116,14 +116,11 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 	if (ID > 0)
 	{
 		//Need to somehow get normals for chunk sides
-		
 
 		vec4 voxelcolor = GetColorFromPalette(ID);//getGrayFromPalette(ID);
-		vec3 vPos = uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize;
+		vec3 _vPos = (uModel * vec4(uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize, 1.0)).xyz;
 
-		return vec4(normal,1.0);
-		gl_FragDepth = length(vPos - uCameraPos) / 100.0;
-		//return voxelcolor;
+		gl_FragDepth = length(_vPos - uCameraPos) / 100.0;
 		float lightAtt;
 
 		lightAtt = max(dot(normal,normalize(-sunDir)),0.0);
@@ -177,7 +174,6 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 	
 		if (ID > 0)
 		{
-			return vec4(normal,1.0);
 			vec4 voxelcolor = GetColorFromPalette(ID);//getGrayFromPalette(ID);
 			//ensure precision errors dont occur
 			if(voxelcolor.x == -1.0)
@@ -191,8 +187,9 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 
 			vec4 col = (voxelcolor * 0.1 + voxelcolor * lightAtt);
 			col.w = 1.0;
-			vec3 vPos = uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize;
-			gl_FragDepth = length(vPos - uCameraPos) / 100.0;
+
+			vec3 _vPos = (uModel * vec4(uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize, 1.0)).xyz;
+			gl_FragDepth = length(_vPos - uCameraPos) / 100.0;
 			return col;
 		}
 		steps++;
@@ -205,12 +202,12 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 
 void main() 
 {
-	vec3 rayDir = RayDirection(uCameraPos,vPos);
+	vec3 rayDir = normalize((inverse(uModel) * vec4(normalize(vPos - uCameraPos), 0.0)).xyz);
+	vec3 rayOrigin = (inverse(uModel) * vec4(uCameraPos, 1.0)).xyz;
 	vec3 hitPos = vec3(0.0);
 
-	if(AABBIntersect(uCameraPos,rayDir,hitPos))
+	if(AABBIntersect(rayOrigin,rayDir,hitPos))
 	{
-		
 		fragColor = TraverseVoxelGrid(hitPos,rayDir);
 		//fragColor = RayMarch(hitPos,rayDir);
 		if(fragColor.a < 1.0)

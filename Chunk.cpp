@@ -1,145 +1,118 @@
-#include<glm.hpp>
-
-#include <GL/glew.h>
-#include <GLFW/glfw3.h>
-#include<gtc/matrix_transform.hpp>
-#include"PerlinNoise.hpp"
-
 #include "Chunk.h"
 
-template<typename T, typename Allocator>
-size_t sizeof_vec(std::vector<T, Allocator> const& v)
+//Unsigned char is 1 byte, while unsigned int would be 4 bytes, i only store 3 bits of data max so could be further improved
+GLuint create3DTexture(int width, int height, int depth, const std::vector<unsigned char>& data)
 {
-	return v.size() * sizeof(T);
-}
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_3D, textureID);
 
-#pragma region const
-static const std::vector<GLfloat> TopPosPreset = {
-		-0.5f,0.5f,0.5f,
-		0.5f,0.5f,0.5f,
-		0.5f,0.5f,-0.5f,
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-		-0.5f,0.5f,0.5f,
-		0.5f,0.5f,-0.5f,
-		-0.5f,0.5f,-0.5f,
-};
-static const std::vector<GLfloat> TopNormalsPreset = {
-		0.0f,1.0f,0.0f,
-		0.0f,1.0f,0.0f,
-		0.0f,1.0f,0.0f,
-		0.0f,1.0f,0.0f,
-		0.0f,1.0f,0.0f,
-		0.0f,1.0f,0.0f,
-};
-static const std::vector<GLfloat> FrontPosPreset = {
-	-0.5f,-0.5f,0.5f,
-	0.5f,-0.5f,0.5f,
-	0.5f,0.5f,0.5f,
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, width, height, depth, 0, GL_RED, GL_UNSIGNED_BYTE, data.data());
 
-	-0.5f,-0.5f,0.5f,
-	0.5f,0.5f,0.5f,
-	-0.5f,0.5f,0.5f,
-};
-static const std::vector<GLfloat> FrontNormalsPreset = {
-	0.0f,0.0f,1.0f,
-	0.0f,0.0f,1.0f,
-	0.0f,0.0f,1.0f,
-	0.0f,0.0f,1.0f,
-	0.0f,0.0f,1.0f,
-	0.0f,0.0f,1.0f,
-};
-static const std::vector<GLfloat> BackPosPreset = {
-		0.5f,-0.5f,-0.5f,
-	-0.5f,-0.5f,-0.5f,
-	-0.5f,0.5f,-0.5f,
-
-	0.5f,-0.5f,-0.5f,
-	-0.5f,0.5f,-0.5f,
-	0.5f,0.5f,-0.5f,
-};
-static const std::vector<GLfloat> BackNormalsPreset = {
-			0.0f,0.0f,-1.0f,
-		0.0f,0.0f,-1.0f,
-		0.0f,0.0f,-1.0f,
-		0.0f,0.0f,-1.0f,
-		0.0f,0.0f,-1.0f,
-		0.0f,0.0f,-1.0f,
-};
-static const std::vector<GLfloat> BottomPosPreset = {
-		-0.5f,-0.5f,0.5f,
-	-0.5f,-0.5f,-0.5f,
-	0.5f,-0.5f,0.5f,
-
-	-0.5f,-0.5f,-0.5f,
-	0.5f,-0.5f,-0.5f,
-	0.5f,-0.5f,0.5f,
-};
-static const std::vector<GLfloat> BottomNormalsPreset = {
-			0.0f,-1.0f,0.0f,
-		0.0f,-1.0f,0.0f,
-		0.0f,-1.0f,0.0f,
-		0.0f,-1.0f,0.0f,
-		0.0f,-1.0f,0.0f,
-		0.0f,-1.0f,0.0f,
-};
-static const std::vector<GLfloat> RightPosPreset = {
-		0.5f,-0.5f,0.5f,
-	0.5f,-0.5f,-0.5f,
-	0.5f,0.5f,0.5f,
-
-	0.5f,-0.5f,-0.5f,
-	0.5f,0.5f,-0.5f,
-	0.5f,0.5f,0.5f,
-};
-static const std::vector<GLfloat> RightNormalsPreset = {
-			1.0f,0.0f,0.0f,
-		1.0f,0.0f,0.0f,
-		1.0f,0.0f,0.0f,
-		1.0f,0.0f,0.0f,
-		1.0f,0.0f,0.0f,
-		1.0f,0.0f,0.0f,
-};
-static const std::vector<GLfloat> LeftPosPreset = {
-		-0.5f,-0.5f,0.5f,
-	-0.5f,0.5f,0.5f,
-	-0.5f,-0.5f,-0.5f,
-
-	-0.5f,0.5f,0.5f,
-	-0.5f,0.5f,-0.5f,
-	-0.5f,-0.5f,-0.5f
-};
-static const std::vector<GLfloat> LeftNormalsPreset = {
-			-1.0f,0.0f,0.0f,
-		-1.0f,0.0f,0.0f,
-		-1.0f,0.0f,0.0f,
-		-1.0f,0.0f,0.0f,
-		-1.0f,0.0f,0.0f,
-		-1.0f,0.0f,0.0f,
-};
-#pragma endregion
-
-
-Chunk::Chunk(glm::vec2 _position, Uniforms _uniforms) : chunkPosition(_position), uniforms(_uniforms) {}
-
-
-void Chunk::MeshChunk()
-{
-	float scale = 0.01f;
-	const static uint16_t octaves = 8;
-
-	//Potrzebuje heightmapy? i potem ustawiam layerami podzielonymi na wyoskosc dane
-	
-	for (int x = 0; x < chunksize; x++)
+	//Error check
+	GLint textureWidth, textureHeight, textureDepth;
+	glGetTexLevelParameteriv(GL_TEXTURE_3D, 0, GL_TEXTURE_WIDTH, &textureWidth);
+	glGetTexLevelParameteriv(GL_TEXTURE_3D, 0, GL_TEXTURE_HEIGHT, &textureHeight);
+	glGetTexLevelParameteriv(GL_TEXTURE_3D, 0, GL_TEXTURE_DEPTH, &textureDepth);
+	if (textureWidth != width || textureHeight != height || textureDepth != depth)
 	{
-		int row = 0;
-		for (int z = 0; z < chunksize; z++)
-		{
-
-
-
-				row |= 1 << z; //Ustawiamy bit z na wartoœæ 1 je¿eli wartosc value jest wieksza od 0.5
-		}
-		chunkData[x][1] = row;
+		std::cerr << "Error: Texture dimensions do not match the expected values!" << std::endl;
 	}
 
+	glBindTexture(GL_TEXTURE_3D, 0);
+
+	return textureID;
+}
+
+
+
+Chunk::Chunk(glm::ivec3 pos) 
+{
+	this->m_chunkPosition = pos;
+	this->GenerateTexture();
+	glGenVertexArrays(1, &VAO);
+	glGenBuffers(1, &VBO);
+	glGenBuffers(1, &EBO);
+
+	glBindVertexArray(VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+	this->model = glm::mat4(1.0);
+
+	model = glm::translate(model, m_chunkPosition);
+}
+
+void Chunk::Draw(GLuint voxelShader)
+{
+	glUniformMatrix4fv(glGetUniformLocation(voxelShader, "uModel"), 1, GL_FALSE, glm::value_ptr(this->model));
+
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_3D, this->m_VolumeTexture);
+
+	glUniform1i(glGetUniformLocation(voxelShader, "uVolumeTexture"), 0);
+
+	glBindVertexArray(this->VAO);
+	glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+}
+
+void Chunk::GenerateTexture()
+{
+	std::vector<unsigned char> textureData(width * height * depth);
+
+	for (int x = 0; x < width; x++)
+	{
+		for (int y = 0; y < height; y++)
+		{
+			for (int z = 0; z < depth; z++)
+			{
+
+				auto volumeVal = perlinA.octave3D_01(
+					(x + (width * m_chunkPosition.x)) * volumeScale,
+					(y + (height * m_chunkPosition.y)) * volumeScale,
+					(z + (depth * m_chunkPosition.z)) * volumeScale,
+					4
+				);
+
+				if (volumeVal >= treshold)
+				{
+					auto ColorVal = perlinB.octave3D_01(
+						(x + (width * m_chunkPosition.x)) * colorScale,
+						(y + (height * m_chunkPosition.y)) * colorScale,
+						(z + (depth * m_chunkPosition.z)) * colorScale,
+						4
+					);
+					textureData[x + y * width + z * width * height] = ((int)(floor(ColorVal * 6)) % 7) + 1;
+
+				}
+				else
+				{
+					textureData[x + y * width + z * width * height] = 0;
+				}
+
+			}
+		}
+	}
+
+	this->m_VolumeTexture = create3DTexture(width, height, depth, textureData);
+
+	//Free memory
+	textureData = std::vector<unsigned char>();
 }
