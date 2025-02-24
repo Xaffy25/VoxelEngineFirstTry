@@ -1,5 +1,6 @@
 #include <GLFW/glfw3.h>
 #include <glm.hpp>
+#include <iostream>
 #include <gtc/matrix_transform.hpp>
 #include"Camera.h"
 
@@ -53,6 +54,8 @@ void camera::computeMatricesFromInputs() {
 		cos(verticalAngle) * cos(horizontalAngle)
 	);
 
+	//std::cout << direction.x << " " << direction.y << " " << direction.z << std::endl;
+
 	glm::vec3 right = glm::vec3(
 		sin(horizontalAngle - glm::pi<float>() / 2.0f),
 		0,
@@ -85,7 +88,7 @@ void camera::computeMatricesFromInputs() {
 		speed = baseSpeed;
 	}
 
-	ProjectionMatrix = glm::perspective(glm::radians(initialFoV), 4.0f / 3.0f, 0.01f, 200.0f);
+	ProjectionMatrix = glm::perspective(glm::radians(initialFoV), 4.0f / 3.0f, 0.01f, 2000.0f);
 
 	ViewMatrix = glm::lookAt(
 		Position,

@@ -1,13 +1,11 @@
-#include "Chunk.h"
 #include<glm.hpp>
+
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include<gtc/matrix_transform.hpp>
-#include"PerlinNoise.h"
+#include"PerlinNoise.hpp"
 
-struct Uniforms {
-	GLuint MVP;
-};
+#include "Chunk.h"
 
 template<typename T, typename Allocator>
 size_t sizeof_vec(std::vector<T, Allocator> const& v)
@@ -121,23 +119,27 @@ static const std::vector<GLfloat> LeftNormalsPreset = {
 #pragma endregion
 
 
-Chunk::Chunk(glm::vec2 _position, Uniforms _uniforms, camera _cam) : chunkPosition(_position), uniforms(_uniforms), cam(_cam){}
+Chunk::Chunk(glm::vec2 _position, Uniforms _uniforms) : chunkPosition(_position), uniforms(_uniforms) {}
 
 
 void Chunk::MeshChunk()
 {
 	float scale = 0.01f;
 	const static uint16_t octaves = 8;
-	const siv::PerlinNoise::seed_type seed = 12345u;
-	const siv::PerlinNoise perlin{ seed };
-	
-	for (int x = 0; x < chunksizeX; x++)
-	{
-		for (int z = 0; z < chunksizeZ; z++)
-		{
-			double value = perlin.normalizedOctave2D_01(x, z, octaves);
 
+	//Potrzebuje heightmapy? i potem ustawiam layerami podzielonymi na wyoskosc dane
+	
+	for (int x = 0; x < chunksize; x++)
+	{
+		int row = 0;
+		for (int z = 0; z < chunksize; z++)
+		{
+
+
+
+				row |= 1 << z; //Ustawiamy bit z na wartoœæ 1 je¿eli wartosc value jest wieksza od 0.5
 		}
+		chunkData[x][1] = row;
 	}
 
 }
