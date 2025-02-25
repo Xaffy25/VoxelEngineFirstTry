@@ -35,11 +35,11 @@ const unsigned int indices[] =
 	1, 2, 6, 6, 5, 1   // Right face
 };
 
-const int width = 64;
-const int height = 64;
-const int depth = 64;
+const int width = 16;
+const int height = 16;
+const int depth = 16;
 
-const float treshold = 0.45f;
+const float treshold = 0.55f;
 const float volumeScale = 0.01f;
 const float colorScale = 0.01f;
 
@@ -47,14 +47,17 @@ const float colorScale = 0.01f;
 static const siv::PerlinNoise perlinA{ std::random_device{} };
 static const siv::PerlinNoise perlinB{ 12345u };
 
+static int idx = 0;
+
 class Chunk 
 {
 public:
 	Chunk();
+	~Chunk();
 	Chunk(glm::ivec3 pos);
 
 	void Draw(GLuint voxelShader);
-
+	int ID;
 private:
 	glm::vec3 m_chunkPosition;
 	GLuint m_VolumeTexture;	

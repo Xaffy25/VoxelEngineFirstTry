@@ -11,10 +11,7 @@ uniform vec3 uBoxMin;
 uniform vec3 uBoxMax;
 uniform vec3 uCameraPos;
 uniform mat4 uModel;
-//TEMP
-vec3 sunDir = vec3(-0.2,-1.0,-0.3);
-//TEMP
-
+uniform vec3 sunDir;
 
 const float stepSize = 0.002;
 const int maxSteps = 1000;
@@ -111,8 +108,6 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 	float tDeltaY = 1/dir.y;
 	float tDeltaZ = 1/dir.z;
 
-
-	
 	if (ID > 0)
 	{
 		//Need to somehow get normals for chunk sides
@@ -121,6 +116,8 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 		vec3 _vPos = (uModel * vec4(uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize, 1.0)).xyz;
 
 		gl_FragDepth = length(_vPos - uCameraPos) / 100.0;
+
+		return voxelcolor;
 		float lightAtt;
 
 		lightAtt = max(dot(normal,normalize(-sunDir)),0.0);
@@ -130,8 +127,6 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 		return col;
 			
 	}
-
-
 
 	int steps = 0;
 
@@ -180,6 +175,9 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 			{
 				continue;
 			}
+			vec3 _vPos = (uModel * vec4(uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize, 1.0)).xyz;
+			gl_FragDepth = length(_vPos - uCameraPos) / 100.0;
+			return voxelcolor;
 			//Basic lighting, need to make sure that no voxels are in way
 			float lightAtt;
 
@@ -188,8 +186,7 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 			vec4 col = (voxelcolor * 0.1 + voxelcolor * lightAtt);
 			col.w = 1.0;
 
-			vec3 _vPos = (uModel * vec4(uBoxMin + (vec3(currentVoxel) + 0.5) * voxelSize, 1.0)).xyz;
-			gl_FragDepth = length(_vPos - uCameraPos) / 100.0;
+
 			return col;
 		}
 		steps++;

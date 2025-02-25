@@ -2,21 +2,37 @@
 #include <GLFW/glfw3.h>
 #include <glm.hpp>
 #include <matrix.hpp>
-#include "gtc/matrix_transform.hpp"
+#include <gtc/matrix_transform.hpp>
 #include <gtc/type_ptr.hpp>
+#include <gtx/hash.hpp>
 
 #include <iostream>
 #include <map>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 #include <random>
 #include <string>
 #include <format>
 
 #include "ShaderLoader.hpp"
-#include "PerlinNoise.hpp"
 #include "Camera.h"
 #include "Chunk.h"
-using namespace glm;
+
+//Custom hashing, i dont understand
+struct IVec3Hash {
+	size_t operator()(const glm::ivec3& v) const {
+		// Mix the x, y, and z values into a single hash
+		return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1) ^ (std::hash<int>()(v.z) << 2);
+	}
+};
+
+// Custom equality operator for glm::ivec3
+struct IVec3Equal {
+	bool operator()(const glm::ivec3& a, const glm::ivec3& b) const {
+		return a.x == b.x && a.y == b.y && a.z == b.z;
+	}
+};
 
 
 glm::vec3 colorTable[8] = {
@@ -33,7 +49,63 @@ glm::vec3 colorTable[8] = {
 
 GLFWwindow* window;
 
-std::vector<Chunk> chunks;
+//I dont understand the ivec3hash and ivec3equal part yet
+std::unordered_map<glm::ivec3, Chunk*, IVec3Hash, IVec3Equal> activeChunks;
+
+//std::unordered_map <glm::ivec3, bool> ChunkMap;
+
+Chunk* LoadChunk(glm::ivec3 chunkPos)
+{
+	//std::cout << "Loaded chunk at (" << chunkPos.x << ", " << chunkPos.y << ", " << chunkPos.z << ")\n";
+	Chunk* c = new Chunk(chunkPos);
+	return c;
+}
+
+void UnloadChunk(Chunk *chunk)
+{
+	delete chunk;
+}
+
+void UpdateChunks(glm::vec3 cameraPos, float viewDistance)
+{
+	glm::ivec3 currentChunk = glm::floor(cameraPos + 0.5f);
+	std::unordered_set<glm::ivec3> newVisibleChunks;
+
+	int radius = ceil(viewDistance);
+
+	int a = 0;
+
+	for (int x = -radius; x <= radius; x++)
+	{
+		for (int y = -radius; y <= radius; y++)
+		{
+			for (int z = -radius; z <= radius; z++)
+			{
+				glm::ivec3 chunkPos = currentChunk + glm::ivec3(x, y, z);
+				newVisibleChunks.insert(chunkPos);
+
+				if (activeChunks.find(chunkPos) == activeChunks.end())
+				{
+					activeChunks[chunkPos] = LoadChunk(chunkPos);
+					a++;
+				}
+			}
+		}
+	}
+
+	for (auto it = activeChunks.begin(); it != activeChunks.end();)
+	{
+		if (newVisibleChunks.find(it->first) == newVisibleChunks.end())
+		{
+			UnloadChunk(it->second);
+			it = activeChunks.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
 
 int main()
 {
@@ -81,7 +153,8 @@ int main()
 	glUniform3fv(colorTableLoc, 8, &colorTable[0].x);
 
 	float grayPalette[16];
-	for (int i = 0; i < 16; ++i) {
+	for (int i = 0; i < 16; ++i) 
+	{
 		grayPalette[i] = float(i) / 15.0f;  // Linearly spaced values from 0.0 to 1.0
 	}
 	
@@ -91,17 +164,24 @@ int main()
 	glUniform3f(glGetUniformLocation(voxelShader, "uBoxMax"), 0.5f, 0.5f, 0.5f);
 
 	camera cam = camera(0.125f, 0.005f, 65.0f, window);
+	cam.computeMatricesFromInputs();
+	glm::vec3 sunDir = glm::vec3(-0.2f,-0.6f,-0.2f);
+	glUniform3fv(glGetUniformLocation(voxelShader, "sunDir"), 1, glm::value_ptr(sunDir));
 
-	
-	chunks.push_back(Chunk(glm::ivec3(0, 0, 0)));
-
+	GLuint testVAO, testVBO, testEBO;
+	glGenVertexArrays(1, &testVAO);
+	glGenBuffers(1, &testVBO);
+	glGenBuffers(1, &testEBO);
+	std::cout << "Test VAO: " << testVAO << ", VBO: " << testVBO << ", EBO: " << testEBO << std::endl;
 
 	float deltaTime = 0.0f;
 	float lastFrame = 0.0f;
 	int frames = 0;
 	float t = 0;
 	float fps = 60.0f;
-		
+	
+	int xc = 0;
+
 	// TODO:
 	// Move all texture generating code to chunk class             DONE
 	// Handle normals for chunk borders (maybe pass them in VBO?)
@@ -111,9 +191,6 @@ int main()
 	// path tracing
 	// atom simulaton
 
-	//Temp
-	int xc = 0;
-
 	//Main Loop
 	do 
 	{
@@ -121,21 +198,28 @@ int main()
 		float currentFrame = glfwGetTime();
 		deltaTime = currentFrame - lastFrame;
 		lastFrame = currentFrame;
+
 		glClearColor(0.2f, 0.2f, 0.75f, 0.0f);
 		glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT);
-
 		//modelMatrix = glm::rotate(modelMatrix, glm::radians(0.0025f), rotationvector);
 		cam.computeMatricesFromInputs();
 		glUseProgram(voxelShader);
 		glUniformMatrix4fv(glGetUniformLocation(voxelShader, "uView"), 1, GL_FALSE, glm::value_ptr(cam.getViewMatrix()));
 		glUniformMatrix4fv(glGetUniformLocation(voxelShader, "uProjection"), 1, GL_FALSE, glm::value_ptr(cam.getProjectionMatrix()));
 		glUniform3fv(glGetUniformLocation(voxelShader, "uCameraPos"), 1, glm::value_ptr(cam.getPosition()));
-
-		for (auto& chunk : chunks)
+		
+		UpdateChunks(cam.getPosition(), 5);
+		for (auto& kv : activeChunks)
 		{
-			chunk.Draw(voxelShader);
+			kv.second->Draw(voxelShader);
 		}
 
+		//if (!ChunkMap[currentChunk])
+		//{
+		//	ChunkMap[currentChunk] = true;
+		//	chunks.push_back(Chunk(currentChunk));
+		//}
+		//std::cout << cam.getPosition().x << " : " << cam.getPosition().y << " : " << cam.getPosition().z << std::endl;
 		
 		if (t >= 1.0f)
 		{
@@ -143,10 +227,7 @@ int main()
 			t -= 1.0f;
 			frames = 0;
 			xc++;
-			chunks.push_back(Chunk(glm::ivec3(xc, 0.0, 0.0)));
-			chunks.push_back(Chunk(glm::ivec3(xc, 1.0, 0.0)));
-			chunks.push_back(Chunk(glm::ivec3(xc, 1.0, 1.0)));
-			chunks.push_back(Chunk(glm::ivec3(xc, 0.0, 1.0)));
+
 		}
 		else
 		{

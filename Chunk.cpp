@@ -30,22 +30,27 @@ GLuint create3DTexture(int width, int height, int depth, const std::vector<unsig
 	return textureID;
 }
 
+Chunk::Chunk()
+{
 
+}
 
 Chunk::Chunk(glm::ivec3 pos) 
 {
+	this->ID = idx;
+	idx++;
 	this->m_chunkPosition = pos;
-	this->GenerateTexture();
-	glGenVertexArrays(1, &VAO);
-	glGenBuffers(1, &VBO);
-	glGenBuffers(1, &EBO);
+	glGenVertexArrays(1, &this->VAO);
+	glGenBuffers(1, &this->VBO);
+	glGenBuffers(1, &this->EBO);
+	std::cout << "Chunk " << this->ID << " - VAO: " << this->VAO
+		<< ", VBO: " << this->VBO << ", EBO: " << this->EBO << std::endl;
+	glBindVertexArray(this->VAO);
 
-	glBindVertexArray(VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
@@ -56,7 +61,8 @@ Chunk::Chunk(glm::ivec3 pos)
 
 	this->model = glm::mat4(1.0);
 
-	model = glm::translate(model, m_chunkPosition);
+	this->model = glm::translate(model, m_chunkPosition);
+	this->GenerateTexture();
 }
 
 void Chunk::Draw(GLuint voxelShader)
@@ -115,4 +121,14 @@ void Chunk::GenerateTexture()
 
 	//Free memory
 	textureData = std::vector<unsigned char>();
+}
+
+Chunk::~Chunk()
+{
+	std::cout << "Deleting Chunk " << this->ID << "at(" << this->m_chunkPosition.x << ", " << this->m_chunkPosition.y << ", " << this->m_chunkPosition.z << ")" << std::endl;
+	glDeleteBuffers(1, &this->VBO);
+	glDeleteBuffers(1, &this->EBO);
+	glDeleteVertexArrays(1, &this->VAO);
+
+	glDeleteTextures(1, &this->m_VolumeTexture);
 }
