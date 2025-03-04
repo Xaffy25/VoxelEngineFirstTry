@@ -18,6 +18,10 @@ glm::vec3 camera::getPosition()
 {
 	return Position;
 }
+glm::vec3* camera::getPositionPointer() 
+{
+	return &this->Position;
+}
 
 camera::camera(float _baseSpeed, float _mouseSpeed, float _initialFoV, GLFWwindow* _window) 
 {

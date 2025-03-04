@@ -35,11 +35,11 @@ const unsigned int indices[] =
 	1, 2, 6, 6, 5, 1   // Right face
 };
 
-const int width = 16;
-const int height = 16;
-const int depth = 16;
+const int width = 32;
+const int height = 32;
+const int depth = 32;
 
-const float treshold = 0.55f;
+const float treshold = 0.6f;
 const float volumeScale = 0.01f;
 const float colorScale = 0.01f;
 

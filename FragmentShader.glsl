@@ -187,7 +187,7 @@ vec4 TraverseVoxelGrid (vec3 start, vec3 dir)
 			col.w = 1.0;
 
 
-			return col;
+			//return col;
 		}
 		steps++;
 	}

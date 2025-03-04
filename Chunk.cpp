@@ -32,6 +32,7 @@ GLuint create3DTexture(int width, int height, int depth, const std::vector<unsig
 
 Chunk::Chunk()
 {
+	VAO, VBO, EBO, ID = 0;
 
 }
 
@@ -39,12 +40,11 @@ Chunk::Chunk(glm::ivec3 pos)
 {
 	this->ID = idx;
 	idx++;
+	
 	this->m_chunkPosition = pos;
 	glGenVertexArrays(1, &this->VAO);
 	glGenBuffers(1, &this->VBO);
 	glGenBuffers(1, &this->EBO);
-	std::cout << "Chunk " << this->ID << " - VAO: " << this->VAO
-		<< ", VBO: " << this->VBO << ", EBO: " << this->EBO << std::endl;
 	glBindVertexArray(this->VAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
@@ -63,6 +63,7 @@ Chunk::Chunk(glm::ivec3 pos)
 
 	this->model = glm::translate(model, m_chunkPosition);
 	this->GenerateTexture();
+	std::cout << "Chunk ID : " << this->ID << " generated" << std::endl;
 }
 
 void Chunk::Draw(GLuint voxelShader)
@@ -125,7 +126,7 @@ void Chunk::GenerateTexture()
 
 Chunk::~Chunk()
 {
-	std::cout << "Deleting Chunk " << this->ID << "at(" << this->m_chunkPosition.x << ", " << this->m_chunkPosition.y << ", " << this->m_chunkPosition.z << ")" << std::endl;
+	
 	glDeleteBuffers(1, &this->VBO);
 	glDeleteBuffers(1, &this->EBO);
 	glDeleteVertexArrays(1, &this->VAO);
