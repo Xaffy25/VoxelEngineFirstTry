@@ -55,8 +55,6 @@ glm::vec3 colorTable[8] = {
 
 };
 
-
-
 struct ChunkTask
 {
 	glm::ivec3 coords;
@@ -74,9 +72,8 @@ public:
 
 	void push(const ChunkTask& task)
 	{
-		std::cout << "Thread id : " << std::this_thread::get_id() << " locks taskqueue mutex" << std::endl;
+		
 		std::lock_guard<std::mutex> lock(m_mutex);
-		std::cout << "Mutex succesfuly locked";
 		m_queue.push(task);
 		cond_var.notify_one();
 
@@ -84,7 +81,7 @@ public:
 
 	bool pop()
 	{
-		std::cout << "Thread id : " << std::this_thread::get_id() << " locks taskqueue mutex" << std::endl;
+		
 		std::unique_lock<std::mutex> lock(m_mutex);
 		cond_var.wait(lock, [this] { return !m_queue.empty(); });
 		ChunkTask task = m_queue.front();
@@ -94,7 +91,7 @@ public:
 
 	ChunkTask& front()
 	{
-		std::cout << "Thread id : " << std::this_thread::get_id() << " locks taskqueue mutex" << std::endl;
+		
 		std::lock_guard<std::mutex> lock(m_mutex);
 		return m_queue.front();
 	}
@@ -111,36 +108,38 @@ private:
 	std::queue<ChunkTask> m_queue;
 };
 
-
 GLFWwindow* window;
 
 //I dont understand the ivec3hash and ivec3equal part yet
 std::unordered_map<glm::ivec3, Chunk*, IVec3Hash, IVec3Equal> activeChunks;
-std::mutex mapMutex;
+
+std::vector<Chunk*> ChunksToAssemble;
+
+std::mutex AssemblyMutex;
 //std::unordered_map <glm::ivec3, bool> ChunkMap;
 
 void LoadChunkTask(glm::ivec3 coords)
 {
 	Chunk* chunk = new Chunk(coords);
 	{
-		std::cout << "Thread id : " << std::this_thread::get_id() << " locks mapMutex" << std::endl;
-		std::lock_guard<std::mutex> guard(mapMutex);
-		activeChunks[coords] = chunk;
+		std::lock_guard<std::mutex> guard(AssemblyMutex);
+		ChunksToAssemble.push_back(chunk);
 	}
 
 }
 
 void UnloadChunkTask(glm::ivec3 coords)
 {
+	return;
 	//For future optimisations, dont DESTROY chunk, just store it in other map that holds unactive chunks, when that vector gets too big it will be cleared
-	std::cout << "Thread id : " << std::this_thread::get_id() << " locks mapMutex" << std::endl;
-	std::lock_guard<std::mutex> guard(mapMutex);
+	
+	std::lock_guard<std::mutex> guard(AssemblyMutex);
 	delete activeChunks[coords];
 }
 
 void workerThread(TaskQueue& taskQueue, bool& stopWorkers)
 {
-	std::cout << std::endl << " workerThread id : " << std::this_thread::get_id() << std::endl;
+	
 	std::mutex threadmutex;
 	while (!stopWorkers)
 	{
@@ -158,7 +157,8 @@ void workerThread(TaskQueue& taskQueue, bool& stopWorkers)
 		}
 		else
 		{
-			UnloadChunkTask(task.coords);
+			
+			//UnloadChunkTask(task.coords);
 		}
 	}
 }
@@ -168,7 +168,6 @@ void workerThread(TaskQueue& taskQueue, bool& stopWorkers)
 void UpdateChunksThread(glm::vec3* cameraPos,float& viewDistance,TaskQueue& taskQueue)
 {
 	int radius = ceil(viewDistance);
-	std::cout << std::endl << "updateChunkThread id : " << std::this_thread::get_id()  << std::endl;
 	while (!glfwWindowShouldClose(window))
 	{
 		glm::ivec3 currentChunk = glm::floor(*cameraPos + 0.5f);
@@ -183,33 +182,54 @@ void UpdateChunksThread(glm::vec3* cameraPos,float& viewDistance,TaskQueue& task
 					glm::ivec3 chunkPos = currentChunk + glm::ivec3(x, y, z);
 					newVisibleChunks.insert(chunkPos);
 
-					std::lock_guard<std::mutex> guard(mapMutex); //!!!!!!!!!!!!
+					//std::lock_guard<std::mutex> guard(AssemblyMutex); //!!!!!!!!!!!!
 					if (activeChunks.find(chunkPos) == activeChunks.end())
 					{
 						ChunkTask task = { chunkPos,true };
-						std::cout << "Creating chunk generate task at " << chunkPos.x << "  " << chunkPos.y << " " << chunkPos.z << std::endl;
+						//std::cout << "Creating chunk generate task at " << chunkPos.x << "  " << chunkPos.y << " " << chunkPos.z << std::endl;
 						taskQueue.push(task);
 					}
 				}
 			}
 		}
-
+		/*
 		for (auto it = activeChunks.begin(); it != activeChunks.end();)
 		{
 			if (newVisibleChunks.find(it->first) == newVisibleChunks.end())
 			{
 				ChunkTask task = { it->first,false };
 				taskQueue.push(task);
-				it = activeChunks.erase(it);
+				//it = activeChunks.erase(it);
+				//it = activeChunks.erase(it);
 			}
 			else
 			{
 				++it;
 			}
-		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(20));
+		}*/
+		//std::this_thread::sleep_for(std::chrono::milliseconds(20));
 	}
 }
+
+const int ASSEMBLY_AMOUNT = 5;
+
+void AssembleChunk()
+{
+	if (ChunksToAssemble.empty()) return;
+	std::lock_guard<std::mutex> lock(AssemblyMutex);
+	while (!ChunksToAssemble.empty())
+	{
+	//	if (ChunksToAssemble.empty()) return;
+		Chunk* chunk = ChunksToAssemble.back();
+
+		chunk->AssembleChunk();
+
+		activeChunks[chunk->m_chunkPosition] = chunk;
+
+		ChunksToAssemble.pop_back();
+	}
+}
+
 
 int main()
 {
@@ -272,14 +292,14 @@ int main()
 	glm::vec3 sunDir = glm::vec3(-0.2f,-0.6f,-0.2f);
 	glUniform3fv(glGetUniformLocation(voxelShader, "sunDir"), 1, glm::value_ptr(sunDir));
 
-	float ViewDistance = 1;
+	float ViewDistance = 5;
 
 	std::cout << std::this_thread::get_id() << " : mainThread id" << std::endl;
 
 	TaskQueue taskQueue;
 	bool stopWorkers = false;
 
-	const int numWorkers = 4;
+	const int numWorkers = 8;
 	std::vector<std::thread> workerThreads;
 	workerThreads.reserve(numWorkers);
 	
@@ -338,7 +358,7 @@ int main()
 		glUniform3fv(glGetUniformLocation(voxelShader, "uCameraPos"), 1, glm::value_ptr(cam.getPosition()));
 	
 		{	
-			std::lock_guard<std::mutex> lock(mapMutex);
+			AssembleChunk(); //Check for chunks to assemble, for now only one
 			for (auto& kv : activeChunks)
 			{
 				kv.second->Draw(voxelShader);
@@ -366,8 +386,8 @@ int main()
 	stopWorkers = true;
 
 	{
-		//std::lock_guard<std::mutex> lock(taskQueue.m_mutex);
-		//taskQueue.cond_var.notify_all();
+		std::lock_guard<std::mutex> lock(taskQueue.m_mutex);
+		taskQueue.cond_var.notify_all();
 	}
 
 	for (auto& worker : workerThreads)

@@ -15,16 +15,6 @@ GLuint create3DTexture(int width, int height, int depth, const std::vector<unsig
 
 	glTexImage3D(GL_TEXTURE_3D, 0, GL_RED, width, height, depth, 0, GL_RED, GL_UNSIGNED_BYTE, data.data());
 
-	//Error check
-	GLint textureWidth, textureHeight, textureDepth;
-	glGetTexLevelParameteriv(GL_TEXTURE_3D, 0, GL_TEXTURE_WIDTH, &textureWidth);
-	glGetTexLevelParameteriv(GL_TEXTURE_3D, 0, GL_TEXTURE_HEIGHT, &textureHeight);
-	glGetTexLevelParameteriv(GL_TEXTURE_3D, 0, GL_TEXTURE_DEPTH, &textureDepth);
-	if (textureWidth != width || textureHeight != height || textureDepth != depth)
-	{
-		std::cerr << "Error: Texture dimensions do not match the expected values!" << std::endl;
-	}
-
 	glBindTexture(GL_TEXTURE_3D, 0);
 
 	return textureID;
@@ -42,28 +32,12 @@ Chunk::Chunk(glm::ivec3 pos)
 	idx++;
 	
 	this->m_chunkPosition = pos;
-	glGenVertexArrays(1, &this->VAO);
-	glGenBuffers(1, &this->VBO);
-	glGenBuffers(1, &this->EBO);
-	glBindVertexArray(this->VAO);
-
-	glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-	glEnableVertexAttribArray(0);
-
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
-
+	
 	this->model = glm::mat4(1.0);
 
-	this->model = glm::translate(model, m_chunkPosition);
-	this->GenerateTexture();
-	std::cout << "Chunk ID : " << this->ID << " generated" << std::endl;
+	this->model = glm::translate(model, glm::vec3(m_chunkPosition));
+	this->GenerateTextureData();
+	//std::cout << "Chunk ID : " << this->ID << " generated" << std::endl;
 }
 
 void Chunk::Draw(GLuint voxelShader)
@@ -80,10 +54,11 @@ void Chunk::Draw(GLuint voxelShader)
 
 }
 
-void Chunk::GenerateTexture()
+void Chunk::GenerateTextureData()
 {
-	std::vector<unsigned char> textureData(width * height * depth);
-
+	//std::vector<unsigned char> textureData(width * height * depth);
+	this->m_ptr_textureData = new std::vector<unsigned char> (width * height * depth);
+	
 	for (int x = 0; x < width; x++)
 	{
 		for (int y = 0; y < height; y++)
@@ -106,23 +81,49 @@ void Chunk::GenerateTexture()
 						(z + (depth * m_chunkPosition.z)) * colorScale,
 						4
 					);
-					textureData[x + y * width + z * width * height] = ((int)(floor(ColorVal * 6)) % 7) + 1;
+					(*this->m_ptr_textureData)[x + y * width + z * width * height] = ((int)(floor(ColorVal * 6)) % 7) + 1;
 
 				}
 				else
 				{
-					textureData[x + y * width + z * width * height] = 0;
+					(*this->m_ptr_textureData)[x + y * width + z * width * height] = 0;
 				}
 
 			}
 		}
 	}
 
-	this->m_VolumeTexture = create3DTexture(width, height, depth, textureData);
+	//this->m_ptr_textureData = &textureData;
+	//this->m_VolumeTexture = create3DTexture(width, height, depth, textureData);
 
 	//Free memory
-	textureData = std::vector<unsigned char>();
+	//textureData = std::vector<unsigned char>();
 }
+
+void Chunk::AssembleChunk()
+{
+	glGenVertexArrays(1, &this->VAO);
+	glGenBuffers(1, &this->VBO);
+	glGenBuffers(1, &this->EBO);
+	glBindVertexArray(this->VAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, this->VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, this->EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindVertexArray(0);
+
+
+	this->m_VolumeTexture = create3DTexture(width, height, depth, *m_ptr_textureData);
+
+}
+
 
 Chunk::~Chunk()
 {

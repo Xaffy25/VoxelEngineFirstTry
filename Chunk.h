@@ -57,16 +57,23 @@ public:
 	Chunk(glm::ivec3 pos);
 
 	void Draw(GLuint voxelShader);
+
+	void AssembleChunk();
+
 	int ID;
+
+	glm::ivec3 m_chunkPosition;
+
 private:
-	glm::vec3 m_chunkPosition;
 	GLuint m_VolumeTexture;	
 
 	GLuint VAO, VBO, EBO;
 
 	glm::mat4 model;
 
-	void GenerateTexture();
+	std::vector<unsigned char>* m_ptr_textureData;
+
+	void GenerateTextureData();
 };
 
 #endif
